@@ -7,16 +7,10 @@ type ApiMessage = {
   id: number
   from: string
   to: string
-  messageType?: 'text' | 'file'
+  messageType?: 'text'
   ciphertext: string
   nonce: string
   encryption: string
-  keyCiphertext?: string
-  keyNonce?: string
-  keyEncryption?: string
-  fileName?: string
-  fileMime?: string
-  fileSize?: number
   timestamp: string
 }
 
@@ -28,7 +22,6 @@ type PublicKeyResponse = {
 type Locale = 'en' | 'ru'
 
 const STORAGE_KEYS = {
-  apiBase: 'anonim.apiBase',
   token: 'anonim.token',
   username: 'anonim.username',
   privateKeyPrefix: 'anonim.privateKey.',
@@ -40,7 +33,6 @@ const STORAGE_KEYS = {
 const I18N = {
   en: {
     appTitle: 'Cipher Chat Client',
-    apiBaseUrl: 'API base URL',
     language: 'Language',
     langEn: 'English',
     langRu: 'Russian',
@@ -65,18 +57,12 @@ const I18N = {
     choosePeer: 'Choose or add a peer to start chatting.',
     typeMessage: 'type message',
     send: 'Send',
-    sendFile: 'Send file',
-    noFileSelected: 'No file selected',
-    selectedFile: 'Selected file',
-    fileLabel: 'Encrypted file',
-    downloadDecrypt: 'Decrypt and download',
-    fileTransferMeta: 'File key is encrypted separately for recipient',
     welcomeEyebrow: 'welcome',
     guideHeroTitle: 'Anonim is an encrypted messenger with browser-side key management',
     guideHeroText:
       'You can explore this guide without signing in. To start chatting, create an account, keep your private key on this device, and open a conversation with another user.',
     howToStart: 'How to start',
-    howToStart1: 'Set API base URL if your backend runs on a custom host/port.',
+    howToStart1: 'Make sure backend is available at http://127.0.0.1:8090.',
     howToStart2: 'Register a new account to generate your ECDH key pair in browser.',
     howToStart3: 'Sign in and open chat with peer username.',
     howToStart4: 'Type message and send. Ciphertext is stored on server.',
@@ -119,15 +105,9 @@ const I18N = {
     msgE2eeUnavailable: 'E2EE identity is unavailable in current browser',
     msgDecrypting: '[decrypting...]',
     msgDecryptFailed: '[unable to decrypt on this device]',
-    msgChooseFile: 'Choose a file first',
-    msgFileTooLarge: 'File is too large. Maximum size is 20 MB',
-    msgUnableToSendFile: 'Unable to send file',
-    msgFileDownloaded: 'File decrypted and downloaded',
-    msgUnableToDecryptFile: 'Unable to decrypt file',
   },
   ru: {
     appTitle: 'Клиент шифрованного чата',
-    apiBaseUrl: 'Базовый URL API',
     language: 'Язык',
     langEn: 'Английский',
     langRu: 'Русский',
@@ -147,23 +127,17 @@ const I18N = {
     guideTab: 'Гайд',
     chatTab: 'Чат',
     profileTab: 'Профиль',
-    peerUsername: 'логин собеседника',
+    peerUsername: 'Логин собеседника',
     open: 'Открыть',
     choosePeer: 'Выберите или добавьте собеседника, чтобы начать чат.',
-    typeMessage: 'введите сообщение',
+    typeMessage: 'Введите сообщение',
     send: 'Отправить',
-    sendFile: 'Отправить файл',
-    noFileSelected: 'Файл не выбран',
-    selectedFile: 'Выбран файл',
-    fileLabel: 'Зашифрованный файл',
-    downloadDecrypt: 'Расшифровать и скачать',
-    fileTransferMeta: 'Ключ файла передается отдельно в зашифрованном виде',
-    welcomeEyebrow: 'добро пожаловать',
+    welcomeEyebrow: 'Добро пожаловать',
     guideHeroTitle: 'Anonim — зашифрованный мессенджер с управлением ключами в браузере',
     guideHeroText:
       'Этот гайд доступен без входа. Чтобы начать общение, создайте аккаунт, сохраните приватный ключ на этом устройстве и откройте диалог с другим пользователем.',
     howToStart: 'Как начать',
-    howToStart1: 'Укажите базовый URL API, если backend запущен на другом хосте/порту.',
+    howToStart1: 'Убедитесь, что backend доступен по адресу http://127.0.0.1:8090.',
     howToStart2: 'Зарегистрируйте аккаунт, чтобы сгенерировать ECDH-пару ключей в браузере.',
     howToStart3: 'Войдите и откройте чат по логину собеседника.',
     howToStart4: 'Введите сообщение и отправьте. На сервере хранится только шифртекст.',
@@ -204,17 +178,13 @@ const I18N = {
     msgUnableToLoadImage: 'Не удалось загрузить изображение',
     msgUnableToReadImage: 'Не удалось прочитать выбранное изображение',
     msgE2eeUnavailable: 'E2EE-ключи недоступны в текущем браузере',
-    msgDecrypting: '[расшифровка...]',
+    msgDecrypting: '[Расшифровка...]',
     msgDecryptFailed: '[не удалось расшифровать на этом устройстве]',
-    msgChooseFile: 'Сначала выберите файл',
-    msgFileTooLarge: 'Файл слишком большой. Максимальный размер 20 МБ',
-    msgUnableToSendFile: 'Не удалось отправить файл',
-    msgFileDownloaded: 'Файл расшифрован и скачан',
-    msgUnableToDecryptFile: 'Не удалось расшифровать файл',
   },
 } as const
 
-const apiBase = ref(localStorage.getItem(STORAGE_KEYS.apiBase) || 'http://127.0.0.1:8090')
+const API_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || 'http://127.0.0.1:8090'
 const persistedLocale = localStorage.getItem(STORAGE_KEYS.locale)
 const locale = ref<Locale>(persistedLocale === 'ru' ? 'ru' : 'en')
 const authMode = ref<AuthMode>('login')
@@ -230,10 +200,8 @@ const peers = ref<string[]>([])
 const activePeer = ref('')
 
 const draftMessage = ref('')
-const draftFile = ref<File | null>(null)
 const messages = ref<ApiMessage[]>([])
 const decryptedMessageMap = ref<Record<number, string>>({})
-const downloadingFileMessageId = ref<number | null>(null)
 
 const isBusy = ref(false)
 const infoMessage = ref('')
@@ -279,7 +247,6 @@ function clearMessages(): void {
 }
 
 function persistSession(): void {
-  localStorage.setItem(STORAGE_KEYS.apiBase, apiBase.value)
   localStorage.setItem(STORAGE_KEYS.token, token.value)
   localStorage.setItem(STORAGE_KEYS.username, currentUser.value)
 }
@@ -335,37 +302,6 @@ function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytesToArrayBuffer(base64ToBytes(base64))
-}
-
-function isFileMessage(message: ApiMessage): boolean {
-  return message.messageType === 'file'
-}
-
-function formatBytes(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) {
-    return '0 B'
-  }
-
-  const units = ['B', 'KB', 'MB', 'GB']
-  let size = value
-  let unit = 0
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024
-    unit += 1
-  }
-
-  return `${size.toFixed(size < 10 && unit > 0 ? 1 : 0)} ${units[unit]}`
-}
-
-function triggerDownload(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
 }
 
 function getPrivateKeyStorageKey(name: string): string {
@@ -563,10 +499,6 @@ async function decryptVisibleMessages(): Promise<void> {
   const nextMap: Record<number, string> = {}
 
   for (const message of messages.value) {
-    if (isFileMessage(message)) {
-      continue
-    }
-
     try {
       nextMap[message.id] = await decryptMessage(message)
     } catch {
@@ -581,149 +513,6 @@ async function decryptVisibleMessages(): Promise<void> {
 
 function getMessageText(message: ApiMessage): string {
   return decryptedMessageMap.value[message.id] || t('msgDecrypting')
-}
-
-function handleFileInput(event: Event): void {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0] || null
-
-  if (!file) {
-    draftFile.value = null
-    return
-  }
-
-  const maxFileBytes = 20 * 1024 * 1024
-  if (file.size > maxFileBytes) {
-    setError(t('msgFileTooLarge'))
-    draftFile.value = null
-    input.value = ''
-    return
-  }
-
-  draftFile.value = file
-}
-
-async function sendEncryptedFile(): Promise<void> {
-  if (!isAuthenticated.value || !activePeer.value) {
-    setError(t('msgLoginFirst'))
-    return
-  }
-
-  if (!draftFile.value) {
-    setError(t('msgChooseFile'))
-    return
-  }
-
-  if (!isE2EEReady()) {
-    setError(t('msgE2eeUnavailable'))
-    return
-  }
-
-  isBusy.value = true
-
-  try {
-    const file = draftFile.value
-    const peerKey = await getPeerPublicKey(activePeer.value)
-    const sharedKey = await deriveChatKey(peerKey)
-
-    const rawFileBytes = new Uint8Array(await file.arrayBuffer())
-    const fileDataKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt'])
-
-    const fileNonce = randomNonce(12)
-    const encryptedFile = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: bytesToArrayBuffer(fileNonce) },
-      fileDataKey,
-      rawFileBytes,
-    )
-
-    const fileKeyRaw = new Uint8Array(await crypto.subtle.exportKey('raw', fileDataKey))
-    const keyNonce = randomNonce(12)
-    const encryptedFileKey = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: bytesToArrayBuffer(keyNonce) },
-      sharedKey,
-      fileKeyRaw,
-    )
-
-    await requestApi(
-      '/api/messages',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          to: activePeer.value,
-          messageType: 'file',
-          ciphertext: bytesToBase64(new Uint8Array(encryptedFile)),
-          nonce: bytesToBase64(fileNonce),
-          encryption: 'aes-gcm-256:file-payload',
-          keyCiphertext: bytesToBase64(new Uint8Array(encryptedFileKey)),
-          keyNonce: bytesToBase64(keyNonce),
-          keyEncryption: 'ecdh-p256/aes-gcm-256:file-key-wrap',
-          fileName: file.name,
-          fileMime: file.type || 'application/octet-stream',
-          fileSize: file.size,
-        }),
-      },
-      true,
-    )
-
-    draftFile.value = null
-    const fileInput = document.getElementById('file-input') as HTMLInputElement | null
-    if (fileInput) {
-      fileInput.value = ''
-    }
-
-    await loadMessages()
-  } catch (error) {
-    setError(error instanceof Error ? error.message : t('msgUnableToSendFile'))
-  } finally {
-    isBusy.value = false
-  }
-}
-
-async function decryptAndDownloadFile(message: ApiMessage): Promise<void> {
-  if (!isFileMessage(message)) {
-    return
-  }
-
-  if (!message.keyCiphertext || !message.keyNonce || !message.fileName) {
-    setError(t('msgUnableToDecryptFile'))
-    return
-  }
-
-  downloadingFileMessageId.value = message.id
-
-  try {
-    const peerName = message.from === currentUser.value ? message.to : message.from
-    const peerKey = await getPeerPublicKey(peerName)
-    const sharedKey = await deriveChatKey(peerKey)
-
-    const fileKeyRaw = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: base64ToArrayBuffer(message.keyNonce) },
-      sharedKey,
-      base64ToArrayBuffer(message.keyCiphertext),
-    )
-
-    const fileDataKey = await crypto.subtle.importKey(
-      'raw',
-      fileKeyRaw,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['decrypt'],
-    )
-
-    const decryptedFile = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: base64ToArrayBuffer(message.nonce) },
-      fileDataKey,
-      base64ToArrayBuffer(message.ciphertext),
-    )
-
-    const blob = new Blob([decryptedFile], { type: message.fileMime || 'application/octet-stream' })
-    triggerDownload(blob, message.fileName)
-    setInfo(t('msgFileDownloaded'))
-  } catch (error) {
-    setError(error instanceof Error ? error.message : t('msgUnableToDecryptFile'))
-  } finally {
-    downloadingFileMessageId.value = null
-  }
 }
 
 async function loadOwnIdentity(name: string): Promise<void> {
@@ -761,7 +550,7 @@ async function requestApi(path: string, init?: RequestInit, withAuth = false): P
     headers.set('X-Auth-Token', authToken)
   }
 
-  const response = await fetch(`${apiBase.value}${path}`, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers,
   })
@@ -978,10 +767,6 @@ onBeforeUnmount(() => {
   stopPolling()
 })
 
-watch(apiBase, (value) => {
-  localStorage.setItem(STORAGE_KEYS.apiBase, value)
-})
-
 watch(locale, (value) => {
   localStorage.setItem(STORAGE_KEYS.locale, value)
 })
@@ -1008,11 +793,6 @@ watch(currentUser, (value) => {
         <p class="eyebrow">anonim</p>
         <h1>{{ t('appTitle') }}</h1>
       </header>
-
-      <label class="field">
-        <span>{{ t('apiBaseUrl') }}</span>
-        <input v-model="apiBase" placeholder="http://127.0.0.1:8090" />
-      </label>
 
       <label class="field">
         <span>{{ t('language') }}</span>
@@ -1076,7 +856,7 @@ watch(currentUser, (value) => {
           <article class="landing-card">
             <h4>{{ t('howToStart') }}</h4>
             <ol>
-              <li>{{ t('howToStart1') }}</li>
+              <!-- <li>{{ t('howToStart1') }}</li> -->
               <li>{{ t('howToStart2') }}</li>
               <li>{{ t('howToStart3') }}</li>
               <li>{{ t('howToStart4') }}</li>
@@ -1140,27 +920,8 @@ watch(currentUser, (value) => {
               <span>{{ message.from }}</span>
               <time>{{ message.timestamp }}</time>
             </header>
-            <template v-if="isFileMessage(message)">
-              <div class="file-message">
-                <p>
-                  <strong>{{ t('fileLabel') }}:</strong>
-                  {{ message.fileName || 'file.bin' }}
-                </p>
-                <small>{{ formatBytes(message.fileSize || 0) }} • {{ message.fileMime || 'application/octet-stream' }}</small>
-                <small>{{ t('fileTransferMeta') }}</small>
-                <button
-                  class="btn btn--accent file-message__btn"
-                  :disabled="downloadingFileMessageId === message.id"
-                  @click="decryptAndDownloadFile(message)"
-                >
-                  {{ downloadingFileMessageId === message.id ? t('pleaseWait') : t('downloadDecrypt') }}
-                </button>
-              </div>
-            </template>
-            <template v-else>
-              <p>{{ getMessageText(message) }}</p>
-              <small>{{ message.encryption }} • nonce {{ message.nonce }}</small>
-            </template>
+            <p>{{ getMessageText(message) }}</p>
+            <small>{{ message.encryption }} • nonce {{ message.nonce }}</small>
           </article>
         </div>
 
@@ -1173,22 +934,8 @@ watch(currentUser, (value) => {
             rows="3"
             :placeholder="t('typeMessage')"
           ></textarea>
-          <div class="composer-file">
-            <input
-              id="file-input"
-              type="file"
-              :disabled="!activePeer || !isAuthenticated || isBusy"
-              @change="handleFileInput"
-            />
-            <small>
-              {{ draftFile ? `${t('selectedFile')}: ${draftFile.name} (${formatBytes(draftFile.size)})` : t('noFileSelected') }}
-            </small>
-          </div>
           <div class="composer-actions">
             <button class="btn btn--primary" :disabled="!draftMessage.trim() || !activePeer || isBusy">{{ t('send') }}</button>
-            <button class="btn btn--accent" type="button" :disabled="!draftFile || !activePeer || isBusy" @click="sendEncryptedFile">
-              {{ t('sendFile') }}
-            </button>
           </div>
         </form>
       </template>
@@ -1214,7 +961,7 @@ watch(currentUser, (value) => {
           <button class="btn btn--ghost" :disabled="!isAuthenticated" @click="resetProfileCustomization">{{ t('reset') }}</button>
         </div>
 
-        <p class="profile-note">{{ t('avatarNote') }}</p>
+        <!-- <p class="profile-note">{{ t('avatarNote') }}</p>   -->
         <p v-if="avatarInputError" class="flash flash--error">{{ avatarInputError }}</p>
       </section>
     </section>

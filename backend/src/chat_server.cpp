@@ -657,9 +657,16 @@ std::string ChatServer::handle_post_message(
     }
 
     const std::string to = trim(json_get_string(body, "to"));
+    const std::string message_type = to_lower(trim(json_get_string(body, "messageType")));
     const std::string ciphertext = json_get_string(body, "ciphertext");
     const std::string nonce = json_get_string(body, "nonce");
     std::string encryption = trim(json_get_string(body, "encryption"));
+    const std::string key_ciphertext = trim(json_get_string(body, "keyCiphertext"));
+    const std::string key_nonce = trim(json_get_string(body, "keyNonce"));
+    const std::string key_encryption = trim(json_get_string(body, "keyEncryption"));
+    const std::string file_name = trim(json_get_string(body, "fileName"));
+    const std::string file_mime = trim(json_get_string(body, "fileMime"));
+    const std::string file_size = trim(json_get_string(body, "fileSize"));
 
     if (to.empty() || ciphertext.empty() || nonce.empty())
     {
@@ -667,6 +674,23 @@ std::string ChatServer::handle_post_message(
             400,
             "Bad Request",
             "{\"error\":\"to, ciphertext and nonce are required\"}");
+    }
+
+    if (!message_type.empty() && message_type != "text")
+    {
+        return make_http_response(
+            400,
+            "Bad Request",
+            "{\"error\":\"Only text messages are supported\"}");
+    }
+
+    if (!key_ciphertext.empty() || !key_nonce.empty() || !key_encryption.empty() || !file_name.empty() ||
+        !file_mime.empty() || !file_size.empty())
+    {
+        return make_http_response(
+            400,
+            "Bad Request",
+            "{\"error\":\"Media/file payloads are not supported\"}");
     }
 
     if (encryption.empty())
@@ -747,7 +771,7 @@ std::string ChatServer::handle_get_messages(
              << "\",\"ciphertext\":\"" << json_escape(msg.ciphertext)
              << "\",\"nonce\":\"" << json_escape(msg.nonce)
              << "\",\"encryption\":\"" << json_escape(msg.encryption)
-             << ",\"timestamp\":\"" << json_escape(msg.timestamp)
+             << "\",\"timestamp\":\"" << json_escape(msg.timestamp)
              << "\"}";
     }
 
