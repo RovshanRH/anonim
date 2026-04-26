@@ -747,7 +747,7 @@ std::string ChatServer::handle_get_messages(
              << "\",\"ciphertext\":\"" << json_escape(msg.ciphertext)
              << "\",\"nonce\":\"" << json_escape(msg.nonce)
              << "\",\"encryption\":\"" << json_escape(msg.encryption)
-             << "\",\"timestamp\":\"" << json_escape(msg.timestamp)
+             << ",\"timestamp\":\"" << json_escape(msg.timestamp)
              << "\"}";
     }
 
@@ -757,20 +757,37 @@ std::string ChatServer::handle_get_messages(
 
 std::string ChatServer::authenticate(const std::unordered_map<std::string, std::string> &headers)
 {
-    const auto it = headers.find("authorization");
-    if (it == headers.end())
+    std::string token;
+
+    const auto it_auth = headers.find("authorization");
+    if (it_auth != headers.end())
+    {
+        const std::string auth = trim(it_auth->second);
+        const std::string bearer_prefix = "bearer ";
+        if (auth.size() > bearer_prefix.size() &&
+            to_lower(auth.substr(0, bearer_prefix.size())) == bearer_prefix)
+        {
+            token = trim(auth.substr(bearer_prefix.size()));
+        }
+        else
+        {
+            token = trim(auth);
+        }
+    }
+
+    if (token.empty())
+    {
+        const auto it_fallback = headers.find("x-auth-token");
+        if (it_fallback != headers.end())
+        {
+            token = trim(it_fallback->second);
+        }
+    }
+
+    if (token.empty())
     {
         return {};
     }
-
-    const std::string auth = trim(it->second);
-    const std::string bearer = "Bearer ";
-    if (auth.rfind(bearer, 0) != 0 || auth.size() <= bearer.size())
-    {
-        return {};
-    }
-
-    const std::string token = auth.substr(bearer.size());
 
     std::lock_guard<std::mutex> lock(data_mutex_);
     const auto token_it = sessions_.find(token);
@@ -781,7 +798,6 @@ std::string ChatServer::authenticate(const std::unordered_map<std::string, std::
 
     return token_it->second;
 }
-
 std::string ChatServer::make_http_response(int status_code, const std::string &status_text, const std::string &json_body)
 {
     std::ostringstream response;
@@ -790,7 +806,7 @@ std::string ChatServer::make_http_response(int status_code, const std::string &s
              << "Content-Length: " << json_body.size() << "\r\n"
              << "Connection: close\r\n"
              << "Access-Control-Allow-Origin: *\r\n"
-             << "Access-Control-Allow-Headers: Content-Type, Authorization\r\n"
+             << "Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token\r\n"
              << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
              << "\r\n"
              << json_body;

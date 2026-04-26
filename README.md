@@ -47,6 +47,27 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8090/health
 
 ## Использованные сторонние библиотеки и инструменты
 
+## Docker: backend + frontend одной командой
+
+Требуется установленный Docker Desktop (или Docker Engine + Compose).
+
+Запуск из корня репозитория:
+
+```powershell
+docker compose up --build
+```
+
+После запуска:
+
+- Frontend: http://127.0.0.1:5173
+- Backend API: http://127.0.0.1:8090
+
+Остановка:
+
+```powershell
+docker compose down
+```
+
 ### Backend
 
 - CMake (система сборки)
@@ -62,4 +83,3 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8090/health
 - `@vitejs/plugin-vue`
 - TypeScript
 - `vue-tsc`
-
