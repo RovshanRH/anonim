@@ -1,95 +1,121 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import viteLogo from '../assets/vite.svg'
-import heroImg from '../assets/hero.png'
-import vueLogo from '../assets/vue.svg'
+defineOptions({ name: "AuthPanel" });
 
-const count = ref(0)
+type Translator = (...args: any[]) => string;
+
+defineProps<{
+  t: Translator;
+  locale: "en" | "ru";
+  authMode: "login" | "register";
+  username: string;
+  password: string;
+  isBusy: boolean;
+  isAuthenticated: boolean;
+  infoMessage: string;
+  errorMessage: string;
+}>();
+
+const emit = defineEmits<{
+  (event: "update:locale", value: "en" | "ru"): void;
+  (event: "update:auth-mode", value: "login" | "register"): void;
+  (event: "update:username", value: string): void;
+  (event: "update:password", value: string): void;
+  (event: "submit"): void;
+  (event: "logout"): void;
+}>();
 </script>
 
 <template>
-  <section id="center">
-    <div class="hero">
-      <img :src="heroImg" class="base" width="170" height="179" alt="" />
-      <img :src="vueLogo" class="framework" alt="Vue logo" />
-      <img :src="viteLogo" class="vite" alt="Vite logo" />
+  <section class="panel panel--auth">
+    <header class="panel__header">
+      <p class="eyebrow">anonim</p>
+      <h1>{{ t("appTitle") }}</h1>
+    </header>
+
+    <label class="field">
+      <span>{{ t("language") }}</span>
+      <select
+        :value="locale"
+        @change="
+          emit(
+            'update:locale',
+            ($event.target as HTMLSelectElement).value as 'en' | 'ru',
+          )
+        "
+      >
+        <option value="en">{{ t("langEn") }}</option>
+        <option value="ru">{{ t("langRu") }}</option>
+      </select>
+    </label>
+
+    <div class="tabs">
+      <button
+        :class="{ active: authMode === 'login' }"
+        @click="emit('update:auth-mode', 'login')"
+      >
+        {{ t("loginTab") }}
+      </button>
+      <button
+        :class="{ active: authMode === 'register' }"
+        @click="emit('update:auth-mode', 'register')"
+      >
+        {{ t("registerTab") }}
+      </button>
     </div>
-    <div>
-      <h1>Get started</h1>
-      <p>Edit <code>src/App.vue</code> and save to test <code>HMR</code></p>
-    </div>
-    <button type="button" class="counter" @click="count++">
-      Count is {{ count }}
+
+    <label class="field">
+      <span>{{ t("username") }}</span>
+      <input
+        :value="username"
+        autocomplete="username"
+        placeholder="alice"
+        @input="
+          emit('update:username', ($event.target as HTMLInputElement).value)
+        "
+      />
+    </label>
+
+    <label class="field">
+      <span>{{ t("password") }}</span>
+      <input
+        :value="password"
+        type="password"
+        autocomplete="current-password"
+        placeholder="********"
+        @input="
+          emit('update:password', ($event.target as HTMLInputElement).value)
+        "
+      />
+    </label>
+
+    <label v-if="authMode === 'register'" class="field">
+      <span>{{ t("e2eeKeys") }}</span>
+      <textarea
+        rows="4"
+        disabled
+        :placeholder="t('e2eePlaceholder')"
+      ></textarea>
+    </label>
+
+    <button class="btn btn--primary" :disabled="isBusy" @click="emit('submit')">
+      {{
+        isBusy
+          ? t("pleaseWait")
+          : authMode === "login"
+            ? t("signIn")
+            : t("createAccount")
+      }}
     </button>
+
+    <button
+      v-if="isAuthenticated"
+      class="btn btn--ghost"
+      @click="emit('logout')"
+    >
+      {{ t("logout") }}
+    </button>
+
+    <p v-if="infoMessage" class="flash flash--info">{{ infoMessage }}</p>
+    <p v-if="errorMessage" class="flash flash--error">{{ errorMessage }}</p>
   </section>
-
-  <div class="ticks"></div>
-
-  <section id="next-steps">
-    <div id="docs">
-      <svg class="icon" role="presentation" aria-hidden="true">
-        <use href="/icons.svg#documentation-icon"></use>
-      </svg>
-      <h2>Documentation</h2>
-      <p>Your questions, answered</p>
-      <ul>
-        <li>
-          <a href="https://vite.dev/" target="_blank">
-            <img class="logo" :src="viteLogo" alt="" />
-            Explore Vite
-          </a>
-        </li>
-        <li>
-          <a href="https://vuejs.org/" target="_blank">
-            <img class="button-icon" :src="vueLogo" alt="" />
-            Learn more
-          </a>
-        </li>
-      </ul>
-    </div>
-    <div id="social">
-      <svg class="icon" role="presentation" aria-hidden="true">
-        <use href="/icons.svg#social-icon"></use>
-      </svg>
-      <h2>Connect with us</h2>
-      <p>Join the Vite community</p>
-      <ul>
-        <li>
-          <a href="https://github.com/vitejs/vite" target="_blank">
-            <svg class="button-icon" role="presentation" aria-hidden="true">
-              <use href="/icons.svg#github-icon"></use>
-            </svg>
-            GitHub
-          </a>
-        </li>
-        <li>
-          <a href="https://chat.vite.dev/" target="_blank">
-            <svg class="button-icon" role="presentation" aria-hidden="true">
-              <use href="/icons.svg#discord-icon"></use>
-            </svg>
-            Discord
-          </a>
-        </li>
-        <li>
-          <a href="https://x.com/vite_js" target="_blank">
-            <svg class="button-icon" role="presentation" aria-hidden="true">
-              <use href="/icons.svg#x-icon"></use>
-            </svg>
-            X.com
-          </a>
-        </li>
-        <li>
-          <a href="https://bsky.app/profile/vite.dev" target="_blank">
-            <svg class="button-icon" role="presentation" aria-hidden="true">
-              <use href="/icons.svg#bluesky-icon"></use>
-            </svg>
-            Bluesky
-          </a>
-        </li>
-      </ul>
-    </div>
-  </section>
-
-  <div class="ticks"></div>
-  <section id="spacer"></section>
 </template>

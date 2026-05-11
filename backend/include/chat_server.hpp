@@ -37,6 +37,10 @@ public:
     bool start();
     void stop();
 
+#ifdef ANONIM_TESTING
+    friend class ChatServerTestAccess;
+#endif
+
 private:
     int port_;
     int listen_socket_;

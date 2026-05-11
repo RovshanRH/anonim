@@ -1,22 +1,16 @@
 #include "chat_server.hpp"
+#include "request_utils.hpp"
 
-#include <algorithm>
 #include <array>
 #include <chrono>
-#include <cctype>
 #include <cstring>
 #include <ctime>
-#include <functional>
 #include <iomanip>
 #include <iostream>
-#include <memory>
 #include <random>
 #include <regex>
 #include <sstream>
-#include <string>
 #include <thread>
-#include <unordered_map>
-#include <vector>
 
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -181,198 +175,6 @@ namespace
 #else
         close(socket_fd);
 #endif
-    }
-
-    std::string to_lower(std::string value)
-    {
-        std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c)
-                       { return static_cast<char>(std::tolower(c)); });
-        return value;
-    }
-
-    std::string trim(const std::string &value)
-    {
-        std::size_t start = 0;
-        while (start < value.size() && std::isspace(static_cast<unsigned char>(value[start])) != 0)
-        {
-            ++start;
-        }
-
-        std::size_t end = value.size();
-        while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1])) != 0)
-        {
-            --end;
-        }
-
-        return value.substr(start, end - start);
-    }
-
-    std::string json_escape(const std::string &input)
-    {
-        std::ostringstream oss;
-        for (char c : input)
-        {
-            switch (c)
-            {
-            case '\\':
-                oss << "\\\\";
-                break;
-            case '"':
-                oss << "\\\"";
-                break;
-            case '\n':
-                oss << "\\n";
-                break;
-            case '\r':
-                oss << "\\r";
-                break;
-            case '\t':
-                oss << "\\t";
-                break;
-            default:
-                oss << c;
-                break;
-            }
-        }
-        return oss.str();
-    }
-
-    std::string json_unescape(std::string input)
-    {
-        std::string out;
-        out.reserve(input.size());
-
-        for (std::size_t i = 0; i < input.size(); ++i)
-        {
-            if (input[i] == '\\' && i + 1 < input.size())
-            {
-                const char n = input[i + 1];
-                if (n == 'n')
-                {
-                    out.push_back('\n');
-                    ++i;
-                    continue;
-                }
-                if (n == 'r')
-                {
-                    out.push_back('\r');
-                    ++i;
-                    continue;
-                }
-                if (n == 't')
-                {
-                    out.push_back('\t');
-                    ++i;
-                    continue;
-                }
-                if (n == '\\' || n == '"' || n == '/')
-                {
-                    out.push_back(n);
-                    ++i;
-                    continue;
-                }
-            }
-
-            out.push_back(input[i]);
-        }
-
-        return out;
-    }
-
-    std::string json_get_string(const std::string &body, const std::string &key)
-    {
-        const std::regex pattern("\"" + key + "\"\\s*:\\s*\"((?:\\\\.|[^\"])*)\"");
-        std::smatch match;
-        if (!std::regex_search(body, match, pattern))
-        {
-            return {};
-        }
-
-        if (match.size() < 2)
-        {
-            return {};
-        }
-
-        return json_unescape(match[1].str());
-    }
-
-    std::unordered_map<std::string, std::string> parse_query(const std::string &target)
-    {
-        std::unordered_map<std::string, std::string> query;
-        const std::size_t pos = target.find('?');
-        if (pos == std::string::npos || pos + 1 >= target.size())
-        {
-            return query;
-        }
-
-        const std::string query_part = target.substr(pos + 1);
-        std::size_t start = 0;
-        while (start < query_part.size())
-        {
-            const std::size_t amp = query_part.find('&', start);
-            const std::string piece = query_part.substr(start, amp == std::string::npos ? std::string::npos : amp - start);
-            const std::size_t eq = piece.find('=');
-            if (eq != std::string::npos)
-            {
-                query[piece.substr(0, eq)] = piece.substr(eq + 1);
-            }
-            else
-            {
-                query[piece] = "";
-            }
-
-            if (amp == std::string::npos)
-            {
-                break;
-            }
-            start = amp + 1;
-        }
-
-        return query;
-    }
-
-    std::string path_only(const std::string &target)
-    {
-        const std::size_t pos = target.find('?');
-        if (pos == std::string::npos)
-        {
-            return target;
-        }
-        return target.substr(0, pos);
-    }
-
-    std::string now_iso8601_utc()
-    {
-        const auto now = std::chrono::system_clock::now();
-        const auto time_t_now = std::chrono::system_clock::to_time_t(now);
-
-        std::tm tm_utc{};
-#ifdef _WIN32
-        gmtime_s(&tm_utc, &time_t_now);
-#else
-        gmtime_r(&time_t_now, &tm_utc);
-#endif
-
-        std::ostringstream oss;
-        oss << std::put_time(&tm_utc, "%Y-%m-%dT%H:%M:%SZ");
-        return oss.str();
-    }
-
-    std::string random_token(std::size_t size = 32)
-    {
-        static thread_local std::mt19937_64 rng(std::random_device{}());
-        std::uniform_int_distribution<int> dist(0, 15);
-
-        std::string token;
-        token.reserve(size);
-
-        for (std::size_t i = 0; i < size; ++i)
-        {
-            const int value = dist(rng);
-            token.push_back(static_cast<char>(value < 10 ? ('0' + value) : ('a' + (value - 10))));
-        }
-
-        return token;
     }
 
     bool send_all(SocketType socket_fd, const std::string &data)
@@ -583,7 +385,7 @@ void ChatServer::handle_client(int client_socket)
     const std::size_t header_end = raw_request.find("\r\n\r\n");
     if (header_end == std::string::npos)
     {
-        const std::string bad = make_http_response(400, "Bad Request", "{\"error\":\"Malformed request\"}");
+        const std::string bad = request_utils::make_http_response(400, "Bad Request", "{\"error\":\"Malformed request\"}");
         send_all(static_cast<SocketType>(client_socket), bad);
         close_socket(static_cast<SocketType>(client_socket));
         return;
@@ -596,7 +398,7 @@ void ChatServer::handle_client(int client_socket)
     std::string request_line;
     if (!std::getline(stream, request_line))
     {
-        const std::string bad = make_http_response(400, "Bad Request", "{\"error\":\"Missing request line\"}");
+        const std::string bad = request_utils::make_http_response(400, "Bad Request", "{\"error\":\"Missing request line\"}");
         send_all(static_cast<SocketType>(client_socket), bad);
         close_socket(static_cast<SocketType>(client_socket));
         return;
@@ -615,7 +417,7 @@ void ChatServer::handle_client(int client_socket)
 
     if (method.empty() || target.empty())
     {
-        const std::string bad = make_http_response(400, "Bad Request", "{\"error\":\"Invalid request line\"}");
+        const std::string bad = request_utils::make_http_response(400, "Bad Request", "{\"error\":\"Invalid request line\"}");
         send_all(static_cast<SocketType>(client_socket), bad);
         close_socket(static_cast<SocketType>(client_socket));
         return;
@@ -641,8 +443,8 @@ void ChatServer::handle_client(int client_socket)
             continue;
         }
 
-        const std::string key = to_lower(trim(header_line.substr(0, colon)));
-        const std::string value = trim(header_line.substr(colon + 1));
+        const std::string key = request_utils::to_lower(request_utils::trim(header_line.substr(0, colon)));
+        const std::string value = request_utils::trim(header_line.substr(colon + 1));
         headers[key] = value;
     }
 
@@ -664,48 +466,35 @@ std::string ChatServer::route_request(
         return make_http_response(200, "OK", "{}");
     }
 
-    const std::vector<RouteCommand> commands = {
-        RouteCommand{
-            [&](const std::string &route_path)
-            { return method == "GET" && route_path == "/health"; },
-            [&]()
-            { return handle_health(); }},
-        RouteCommand{
-            [&](const std::string &route_path)
-            { return method == "POST" && route_path == "/api/register"; },
-            [&]()
-            { return handle_register(body); }},
-        RouteCommand{
-            [&](const std::string &route_path)
-            { return method == "POST" && route_path == "/api/login"; },
-            [&]()
-            { return handle_login(body); }},
-        RouteCommand{
-            [&](const std::string &route_path)
-            {
-                return method == "GET" && route_path.rfind("/api/users/", 0) == 0 &&
-                       route_path.size() > std::string("/api/users//public-key").size() &&
-                       route_path.find("/public-key") == route_path.size() - std::string("/public-key").size();
-            },
-            [&]()
-            { return handle_get_public_key(path); }},
-        RouteCommand{
-            [&](const std::string &route_path)
-            { return method == "POST" && route_path == "/api/messages"; },
-            [&]()
-            { return handle_post_message(headers, body); }},
-        RouteCommand{
-            [&](const std::string &route_path)
-            { return method == "GET" && route_path == "/api/messages"; },
-            [&]()
-            { return handle_get_messages(headers, target); }}};
-
-    for (const RouteCommand &command : commands)
+    if (method == "GET" && path == "/health")
     {
-        if (command.match(path))
-        {
-            return command.execute();
-        }
+        return handle_health();
+    }
+
+    if (method == "POST" && path == "/api/register")
+    {
+        return handle_register(body);
+    }
+
+    if (method == "POST" && path == "/api/login")
+    {
+        return handle_login(body);
+    }
+
+    if (method == "GET" && path.rfind("/api/users/", 0) == 0 && path.size() > std::string("/api/users//public-key").size() &&
+        path.find("/public-key") == path.size() - std::string("/public-key").size())
+    {
+        return handle_get_public_key(path);
+    }
+
+    if (method == "POST" && path == "/api/messages")
+    {
+        return handle_post_message(headers, body);
+    }
+
+    if (method == "GET" && path == "/api/messages")
+    {
+        return handle_get_messages(headers, target);
     }
 
     return make_http_response(404, "Not Found", "{\"error\":\"Route not found\"}");
@@ -816,27 +605,29 @@ std::string ChatServer::handle_post_message(
     const std::string file_mime = trim(json_get_string(body, "fileMime"));
     const std::string file_size = trim(json_get_string(body, "fileSize"));
 
-    const MessageValidationContext validation_context{
-        to,
-        message_type,
-        ciphertext,
-        nonce,
-        key_ciphertext,
-        key_nonce,
-        key_encryption,
-        file_name,
-        file_mime,
-        file_size};
-
-    const auto validation_strategies = make_message_validation_strategies();
-    for (const auto &strategy : validation_strategies)
+    if (to.empty() || ciphertext.empty() || nonce.empty())
     {
-        const ValidationError error = strategy->validate(validation_context);
-        if (error.has_error)
-        {
-            const std::string body_json = "{\"error\":\"" + json_escape(error.message) + "\"}";
-            return make_http_response(400, "Bad Request", body_json);
-        }
+        return make_http_response(
+            400,
+            "Bad Request",
+            "{\"error\":\"to, ciphertext and nonce are required\"}");
+    }
+
+    if (!message_type.empty() && message_type != "text")
+    {
+        return make_http_response(
+            400,
+            "Bad Request",
+            "{\"error\":\"Only text messages are supported\"}");
+    }
+
+    if (!key_ciphertext.empty() || !key_nonce.empty() || !key_encryption.empty() || !file_name.empty() ||
+        !file_mime.empty() || !file_size.empty())
+    {
+        return make_http_response(
+            400,
+            "Bad Request",
+            "{\"error\":\"Media/file payloads are not supported\"}");
     }
 
     if (encryption.empty())
@@ -970,10 +761,16 @@ std::string ChatServer::authenticate(const std::unordered_map<std::string, std::
 }
 std::string ChatServer::make_http_response(int status_code, const std::string &status_text, const std::string &json_body)
 {
-    // Builder usage: one place defines how a complete HTTP response should be assembled.
-    return HttpResponseBuilder{}
-        .status(status_code, status_text)
-        .json_body(json_body)
-        .allow_cors(true)
-        .build();
+    std::ostringstream response;
+    response << "HTTP/1.1 " << status_code << ' ' << status_text << "\r\n"
+             << "Content-Type: application/json\r\n"
+             << "Content-Length: " << json_body.size() << "\r\n"
+             << "Connection: close\r\n"
+             << "Access-Control-Allow-Origin: *\r\n"
+             << "Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token\r\n"
+             << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+             << "\r\n"
+             << json_body;
+
+    return response.str();
 }

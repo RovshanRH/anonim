@@ -1,14 +1,21 @@
 FROM debian:bookworm-slim AS builder
 
+# Устанавливаем инструменты сборки и Ninja для более предсказуемой сборки
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential cmake \
+    && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    ninja-build \
+    pkg-config \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 COPY . .
 
-RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-    && cmake --build build --config Release -j
+# Используем генератор Ninja и параллельную сборку
+RUN cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DANONIM_BUILD_TESTS=OFF \
+    && cmake --build build --parallel
 
 FROM debian:bookworm-slim AS runtime
 
