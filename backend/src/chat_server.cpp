@@ -6,8 +6,10 @@
 #include <cctype>
 #include <cstring>
 #include <ctime>
+#include <functional>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <random>
 #include <regex>
 #include <sstream>
@@ -31,6 +33,139 @@
 
 namespace
 {
+    // Builder pattern: constructs consistent HTTP responses step by step via a fluent API.
+    class HttpResponseBuilder
+    {
+    public:
+        HttpResponseBuilder &status(int code, std::string text)
+        {
+            status_code_ = code;
+            status_text_ = std::move(text);
+            return *this;
+        }
+
+        HttpResponseBuilder &json_body(std::string body)
+        {
+            json_body_ = std::move(body);
+            return *this;
+        }
+
+        HttpResponseBuilder &allow_cors(bool enabled)
+        {
+            allow_cors_ = enabled;
+            return *this;
+        }
+
+        std::string build() const
+        {
+            std::ostringstream response;
+            response << "HTTP/1.1 " << status_code_ << ' ' << status_text_ << "\r\n"
+                     << "Content-Type: application/json\r\n"
+                     << "Content-Length: " << json_body_.size() << "\r\n"
+                     << "Connection: close\r\n";
+
+            if (allow_cors_)
+            {
+                response << "Access-Control-Allow-Origin: *\r\n"
+                         << "Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token\r\n"
+                         << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
+            }
+
+            response << "\r\n" << json_body_;
+            return response.str();
+        }
+
+    private:
+        int status_code_ = 200;
+        std::string status_text_ = "OK";
+        std::string json_body_ = "{}";
+        bool allow_cors_ = true;
+    };
+
+    struct ValidationError
+    {
+        bool has_error = false;
+        std::string message;
+    };
+
+    struct MessageValidationContext
+    {
+        std::string to;
+        std::string message_type;
+        std::string ciphertext;
+        std::string nonce;
+        std::string key_ciphertext;
+        std::string key_nonce;
+        std::string key_encryption;
+        std::string file_name;
+        std::string file_mime;
+        std::string file_size;
+    };
+
+    // Strategy pattern: each validator encapsulates one interchangeable message-validation rule.
+    class MessageValidationStrategy
+    {
+    public:
+        virtual ~MessageValidationStrategy() = default;
+        virtual ValidationError validate(const MessageValidationContext &context) const = 0;
+    };
+
+    class RequiredFieldsValidationStrategy final : public MessageValidationStrategy
+    {
+    public:
+        ValidationError validate(const MessageValidationContext &context) const override
+        {
+            if (context.to.empty() || context.ciphertext.empty() || context.nonce.empty())
+            {
+                return ValidationError{true, "to, ciphertext and nonce are required"};
+            }
+            return ValidationError{};
+        }
+    };
+
+    class MessageTypeValidationStrategy final : public MessageValidationStrategy
+    {
+    public:
+        ValidationError validate(const MessageValidationContext &context) const override
+        {
+            if (!context.message_type.empty() && context.message_type != "text")
+            {
+                return ValidationError{true, "Only text messages are supported"};
+            }
+            return ValidationError{};
+        }
+    };
+
+    class UnsupportedPayloadValidationStrategy final : public MessageValidationStrategy
+    {
+    public:
+        ValidationError validate(const MessageValidationContext &context) const override
+        {
+            if (!context.key_ciphertext.empty() || !context.key_nonce.empty() || !context.key_encryption.empty() ||
+                !context.file_name.empty() || !context.file_mime.empty() || !context.file_size.empty())
+            {
+                return ValidationError{true, "Media/file payloads are not supported"};
+            }
+            return ValidationError{};
+        }
+    };
+
+    std::vector<std::unique_ptr<MessageValidationStrategy>> make_message_validation_strategies()
+    {
+        std::vector<std::unique_ptr<MessageValidationStrategy>> strategies;
+        strategies.emplace_back(std::make_unique<RequiredFieldsValidationStrategy>());
+        strategies.emplace_back(std::make_unique<MessageTypeValidationStrategy>());
+        strategies.emplace_back(std::make_unique<UnsupportedPayloadValidationStrategy>());
+        return strategies;
+    }
+
+    // Command pattern: each route is represented as an executable command with its own match predicate.
+    struct RouteCommand
+    {
+        std::function<bool(const std::string &path)> match;
+        std::function<std::string()> execute;
+    };
+
 #ifdef _WIN32
     using SocketType = SOCKET;
     constexpr SocketType kInvalidSocket = INVALID_SOCKET;
@@ -529,35 +664,48 @@ std::string ChatServer::route_request(
         return make_http_response(200, "OK", "{}");
     }
 
-    if (method == "GET" && path == "/health")
-    {
-        return handle_health();
-    }
+    const std::vector<RouteCommand> commands = {
+        RouteCommand{
+            [&](const std::string &route_path)
+            { return method == "GET" && route_path == "/health"; },
+            [&]()
+            { return handle_health(); }},
+        RouteCommand{
+            [&](const std::string &route_path)
+            { return method == "POST" && route_path == "/api/register"; },
+            [&]()
+            { return handle_register(body); }},
+        RouteCommand{
+            [&](const std::string &route_path)
+            { return method == "POST" && route_path == "/api/login"; },
+            [&]()
+            { return handle_login(body); }},
+        RouteCommand{
+            [&](const std::string &route_path)
+            {
+                return method == "GET" && route_path.rfind("/api/users/", 0) == 0 &&
+                       route_path.size() > std::string("/api/users//public-key").size() &&
+                       route_path.find("/public-key") == route_path.size() - std::string("/public-key").size();
+            },
+            [&]()
+            { return handle_get_public_key(path); }},
+        RouteCommand{
+            [&](const std::string &route_path)
+            { return method == "POST" && route_path == "/api/messages"; },
+            [&]()
+            { return handle_post_message(headers, body); }},
+        RouteCommand{
+            [&](const std::string &route_path)
+            { return method == "GET" && route_path == "/api/messages"; },
+            [&]()
+            { return handle_get_messages(headers, target); }}};
 
-    if (method == "POST" && path == "/api/register")
+    for (const RouteCommand &command : commands)
     {
-        return handle_register(body);
-    }
-
-    if (method == "POST" && path == "/api/login")
-    {
-        return handle_login(body);
-    }
-
-    if (method == "GET" && path.rfind("/api/users/", 0) == 0 && path.size() > std::string("/api/users//public-key").size() &&
-        path.find("/public-key") == path.size() - std::string("/public-key").size())
-    {
-        return handle_get_public_key(path);
-    }
-
-    if (method == "POST" && path == "/api/messages")
-    {
-        return handle_post_message(headers, body);
-    }
-
-    if (method == "GET" && path == "/api/messages")
-    {
-        return handle_get_messages(headers, target);
+        if (command.match(path))
+        {
+            return command.execute();
+        }
     }
 
     return make_http_response(404, "Not Found", "{\"error\":\"Route not found\"}");
@@ -668,29 +816,27 @@ std::string ChatServer::handle_post_message(
     const std::string file_mime = trim(json_get_string(body, "fileMime"));
     const std::string file_size = trim(json_get_string(body, "fileSize"));
 
-    if (to.empty() || ciphertext.empty() || nonce.empty())
-    {
-        return make_http_response(
-            400,
-            "Bad Request",
-            "{\"error\":\"to, ciphertext and nonce are required\"}");
-    }
+    const MessageValidationContext validation_context{
+        to,
+        message_type,
+        ciphertext,
+        nonce,
+        key_ciphertext,
+        key_nonce,
+        key_encryption,
+        file_name,
+        file_mime,
+        file_size};
 
-    if (!message_type.empty() && message_type != "text")
+    const auto validation_strategies = make_message_validation_strategies();
+    for (const auto &strategy : validation_strategies)
     {
-        return make_http_response(
-            400,
-            "Bad Request",
-            "{\"error\":\"Only text messages are supported\"}");
-    }
-
-    if (!key_ciphertext.empty() || !key_nonce.empty() || !key_encryption.empty() || !file_name.empty() ||
-        !file_mime.empty() || !file_size.empty())
-    {
-        return make_http_response(
-            400,
-            "Bad Request",
-            "{\"error\":\"Media/file payloads are not supported\"}");
+        const ValidationError error = strategy->validate(validation_context);
+        if (error.has_error)
+        {
+            const std::string body_json = "{\"error\":\"" + json_escape(error.message) + "\"}";
+            return make_http_response(400, "Bad Request", body_json);
+        }
     }
 
     if (encryption.empty())
@@ -824,16 +970,10 @@ std::string ChatServer::authenticate(const std::unordered_map<std::string, std::
 }
 std::string ChatServer::make_http_response(int status_code, const std::string &status_text, const std::string &json_body)
 {
-    std::ostringstream response;
-    response << "HTTP/1.1 " << status_code << ' ' << status_text << "\r\n"
-             << "Content-Type: application/json\r\n"
-             << "Content-Length: " << json_body.size() << "\r\n"
-             << "Connection: close\r\n"
-             << "Access-Control-Allow-Origin: *\r\n"
-             << "Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token\r\n"
-             << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
-             << "\r\n"
-             << json_body;
-
-    return response.str();
+    // Builder usage: one place defines how a complete HTTP response should be assembled.
+    return HttpResponseBuilder{}
+        .status(status_code, status_text)
+        .json_body(json_body)
+        .allow_cors(true)
+        .build();
 }
