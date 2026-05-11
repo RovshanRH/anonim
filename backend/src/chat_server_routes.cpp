@@ -10,6 +10,7 @@ std::string ChatServer::route_request(
     const std::unordered_map<std::string, std::string> &headers,
     const std::string &body)
 {
+    // Выбирает обработчик по методу и пути.
     const std::string path = request_utils::path_only(target);
 
     if (method == "OPTIONS")
@@ -53,11 +54,13 @@ std::string ChatServer::route_request(
 
 std::string ChatServer::handle_health() const
 {
+    // Простая проверка живости сервиса.
     return request_utils::make_http_response(200, "OK", "{\"status\":\"ok\",\"service\":\"anonim-backend\"}");
 }
 
 std::string ChatServer::handle_register(const std::string &body)
 {
+    // Регистрирует пользователя и сохраняет его публичный ключ.
     const std::string username = request_utils::trim(request_utils::json_get_string(body, "username"));
     const std::string password_hash = request_utils::trim(request_utils::json_get_string(body, "passwordHash"));
     const std::string public_key = request_utils::trim(request_utils::json_get_string(body, "publicKey"));
@@ -82,6 +85,7 @@ std::string ChatServer::handle_register(const std::string &body)
 
 std::string ChatServer::handle_login(const std::string &body)
 {
+    // Проверяет пароль и выдаёт токен сессии.
     const std::string username = request_utils::trim(request_utils::json_get_string(body, "username"));
     const std::string password_hash = request_utils::trim(request_utils::json_get_string(body, "passwordHash"));
 
@@ -107,6 +111,7 @@ std::string ChatServer::handle_login(const std::string &body)
 
 std::string ChatServer::handle_get_public_key(const std::string &target)
 {
+    // Отдаёт публичный ключ пользователя по его логину.
     const std::string prefix = "/api/users/";
     const std::string suffix = "/public-key";
 
@@ -138,6 +143,7 @@ std::string ChatServer::handle_post_message(
     const std::unordered_map<std::string, std::string> &headers,
     const std::string &body)
 {
+    // Принимает только зашифрованные сообщения.
     const std::string sender = authenticate(headers);
     if (sender.empty())
     {
@@ -214,6 +220,7 @@ std::string ChatServer::handle_get_messages(
     const std::unordered_map<std::string, std::string> &headers,
     const std::string &target)
 {
+    // Возвращает переписку только между двумя участниками.
     const std::string requester = authenticate(headers);
     if (requester.empty())
     {
@@ -269,6 +276,7 @@ std::string ChatServer::handle_get_messages(
 
 std::string ChatServer::authenticate(const std::unordered_map<std::string, std::string> &headers)
 {
+    // Ищет токен в заголовках и сверяет его сессией.
     std::string token;
 
     const auto it_auth = headers.find("authorization");

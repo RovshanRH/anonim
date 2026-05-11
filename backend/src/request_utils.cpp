@@ -11,6 +11,7 @@
 
 namespace request_utils
 {
+    // Приведение к нижнему регистру для сравнения строк.
     std::string to_lower(std::string value)
     {
         std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c)
@@ -18,6 +19,7 @@ namespace request_utils
         return value;
     }
 
+    // Убирает пробелы и переводы строк по краям.
     std::string trim(const std::string &value)
     {
         std::size_t start = 0;
@@ -35,6 +37,7 @@ namespace request_utils
         return value.substr(start, end - start);
     }
 
+    // Экранирует строку для JSON.
     std::string json_escape(const std::string &input)
     {
         std::ostringstream oss;
@@ -65,6 +68,7 @@ namespace request_utils
         return oss.str();
     }
 
+    // Возвращает исходные символы после JSON-экранирования.
     std::string json_unescape(std::string input)
     {
         std::string out;
@@ -107,6 +111,7 @@ namespace request_utils
         return out;
     }
 
+    // Достаёт строковое поле из простого JSON-тела.
     std::string json_get_string(const std::string &body, const std::string &key)
     {
         const std::string needle = "\"" + key + "\"";
@@ -169,6 +174,7 @@ namespace request_utils
         return json_unescape(raw_value);
     }
 
+    // Разбирает query-параметры в map.
     std::unordered_map<std::string, std::string> parse_query(const std::string &target)
     {
         std::unordered_map<std::string, std::string> query;
@@ -204,6 +210,7 @@ namespace request_utils
         return query;
     }
 
+    // Оставляет только путь без query-части.
     std::string path_only(const std::string &target)
     {
         const std::size_t pos = target.find('?');
@@ -214,6 +221,7 @@ namespace request_utils
         return target.substr(0, pos);
     }
 
+    // Текущая UTC-метка времени в ISO 8601.
     std::string now_iso8601_utc()
     {
         const auto now = std::chrono::system_clock::now();
@@ -231,6 +239,7 @@ namespace request_utils
         return oss.str();
     }
 
+    // Генерирует случайный hex-токен.
     std::string random_token(std::size_t size)
     {
         static thread_local std::mt19937_64 rng(std::random_device{}());
@@ -248,6 +257,7 @@ namespace request_utils
         return token;
     }
 
+    // Собирает HTTP-ответ с JSON-телом.
     std::string make_http_response(int status_code, const std::string &status_text, const std::string &json_body)
     {
         std::ostringstream response;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// Панель аутентификации: выбор языка, вход и регистрация (генерация ключей на клиенте).
 defineOptions({ name: "AuthPanel" });
 
 type Translator = (...args: any[]) => string;

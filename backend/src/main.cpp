@@ -37,6 +37,7 @@ int main(int argc, char *argv[])
 {
     int port = 8080;
 
+    // Порт можно переопределить аргументом командной строки.
     if (argc > 1)
     {
         try
@@ -59,6 +60,7 @@ int main(int argc, char *argv[])
 
     std::cout << "anonim_server is running on port " << port << "\n";
 
+    // Ждём Ctrl+C или Enter в интерактивном режиме.
     std::signal(SIGINT, handle_signal);
 #ifdef SIGTERM
     std::signal(SIGTERM, handle_signal);

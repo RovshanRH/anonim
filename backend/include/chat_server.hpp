@@ -1,4 +1,9 @@
 #pragma once
+#include <string>
+
+// Короткие пояснения:
+// `User` и `Message` — структуры для хранения данных пользователей и сообщений.
+// `ChatServer` — минимальный HTTP-сервер, хранящий пользователей, сессии и зашифрованные сообщения в памяти.
 
 #include <atomic>
 #include <cstdint>
@@ -34,6 +39,7 @@ public:
     ChatServer(const ChatServer &) = delete;
     ChatServer &operator=(const ChatServer &) = delete;
 
+    // Запустить/остановить сервер (локально, в текущем процессе).
     bool start();
     void stop();
 
@@ -55,6 +61,7 @@ private:
     void accept_loop();
     void handle_client(int client_socket);
 
+    // Обработчики HTTP-запросов (используются в тестах и сетевом цикле).
     std::string route_request(
         const std::string &method,
         const std::string &target,

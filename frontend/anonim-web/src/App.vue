@@ -1,6 +1,7 @@
 <script setup lang="ts">
+// Главный компонент: состояние приложения, криптография и вызовы API
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import AuthPanel from "./components/HelloWorld.vue";
+import AuthPanel from "./components/AuthPanel.vue";
 import GuideSection from "./components/GuideSection.vue";
 import ChatPanel from "./components/ChatPanel.vue";
 import ProfilePanel from "./components/ProfilePanel.vue";
@@ -12,19 +13,24 @@ import {
   STORAGE_KEYS,
 } from "./appShared";
 
+// Базовый адрес backend API (переопределяется через Vite env)
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
   "http://127.0.0.1:8090";
+// Локаль и режим аутентификации
 const persistedLocale = localStorage.getItem(STORAGE_KEYS.locale);
 const locale = ref<Locale>(persistedLocale === "ru" ? "ru" : "en");
 const authMode = ref<AuthMode>("login");
 
+// Поля для аутентификации
 const username = ref("");
 const password = ref("");
 
+// Сохранённая сессия (token + username)
 const token = ref(localStorage.getItem(STORAGE_KEYS.token) || "");
 const currentUser = ref(localStorage.getItem(STORAGE_KEYS.username) || "");
 
+// Состояние чата
 const peerInput = ref("");
 const peers = ref<string[]>([]);
 const activePeer = ref("");
@@ -33,14 +39,17 @@ const draftMessage = ref("");
 const messages = ref<ApiMessage[]>([]);
 const decryptedMessageMap = ref<Record<number, string>>({});
 
+// UI-статусы и сообщения
 const isBusy = ref(false);
 const infoMessage = ref("");
 const errorMessage = ref("");
 
+// Страница и профиль
 const activePage = ref<"landing" | "chat" | "profile">("landing");
 const profileAvatarDataUrl = ref("");
 const avatarInputError = ref("");
 
+// Криптографическое состояние (ключи, кеш публичных ключей)
 const ownPrivateKey = ref<CryptoKey | null>(null);
 const ownPublicKeyB64 = ref("");
 
@@ -61,6 +70,8 @@ function t(key: TranslationKey): string {
   return createTranslator(locale.value)(key);
 }
 
+// Переводчик (обёртка вокруг i18n)
+
 function setInfo(text: string): void {
   infoMessage.value = text;
   if (text) {
@@ -80,6 +91,8 @@ function clearMessages(): void {
   setError("");
 }
 
+// Управление flash-сообщениями
+
 function persistSession(): void {
   localStorage.setItem(STORAGE_KEYS.token, token.value);
   localStorage.setItem(STORAGE_KEYS.username, currentUser.value);
@@ -98,6 +111,8 @@ function clearSession(): void {
   localStorage.removeItem(STORAGE_KEYS.username);
 }
 
+// Сохранение/очистка сессии в localStorage
+
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", data);
@@ -106,6 +121,8 @@ async function sha256Hex(input: string): Promise<string> {
     .map((v) => v.toString(16).padStart(2, "0"))
     .join("");
 }
+
+// Хелперы Web Crypto: sha256, nonce, base64 и т.п.
 
 function randomNonce(size = 12): Uint8Array {
   const bytes = new Uint8Array(size);
@@ -163,6 +180,8 @@ function loadProfileCustomization(name: string): void {
 
   profileAvatarDataUrl.value = savedAvatar || "";
 }
+
+// Работа с локальным профилем и аватаром
 
 function persistProfileCustomization(name: string): void {
   if (profileAvatarDataUrl.value) {
@@ -244,6 +263,8 @@ async function generateIdentityKeyPair(): Promise<CryptoKeyPair> {
     ["deriveKey"],
   );
 }
+
+// Генерация/экспорт/импорт ключей ECDH для клиентской E2EE
 
 async function exportPublicKeyBase64(key: CryptoKey): Promise<string> {
   const spki = await crypto.subtle.exportKey("spki", key);
@@ -333,6 +354,8 @@ async function encryptForPeer(
     nonce: bytesToBase64(nonce),
   };
 }
+
+// Шифрование и расшифровка сообщений на клиенте
 
 async function decryptMessage(message: ApiMessage): Promise<string> {
   const peerName =
@@ -437,6 +460,8 @@ async function requestApi(
   return payload;
 }
 
+// Обёртка для fetch: JSON, ошибки и добавление заголовков авторизации
+
 function rememberPeer(name: string): void {
   const normalized = name.trim();
   if (!normalized || peers.value.includes(normalized)) {
@@ -480,6 +505,8 @@ async function register(): Promise<void> {
     isBusy.value = false;
   }
 }
+
+// Регистрация и вход: вызывают соответствующие backend-эндпоинты
 
 async function login(): Promise<void> {
   if (!username.value || !password.value) {
@@ -546,6 +573,8 @@ async function attachPeer(): Promise<void> {
   }
 }
 
+// Подключение к собеседнику и загрузка сообщений
+
 async function loadMessages(): Promise<void> {
   if (!activePeer.value || !isAuthenticated.value) {
     return;
@@ -569,6 +598,8 @@ async function loadMessages(): Promise<void> {
     );
   }
 }
+
+// Загрузка переписки и обновление локального кеша
 
 async function sendMessage(): Promise<void> {
   const text = draftMessage.value.trim();
@@ -610,6 +641,8 @@ async function sendMessage(): Promise<void> {
     isBusy.value = false;
   }
 }
+
+// Отправка шифрованного сообщения на сервер
 
 function startPolling(): void {
   stopPolling();

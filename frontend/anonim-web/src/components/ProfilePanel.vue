@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// Профиль: предпросмотр аватара, загрузка и сохранение локальных настроек.
 type Translator = (...args: any[]) => string;
 
 defineProps<{

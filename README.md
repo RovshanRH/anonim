@@ -1,57 +1,85 @@
 # anonim
 
-## Краткая суть проекта
+## Краткое описание проекта
 
-`anonim` — прототип защищенного текстового чата.
+`anonim` — прототип защищенного текстового чата с разделением на backend и frontend:
 
-- Бэкенд на C++ хранит историю сообщений, выполняет аутентификацию и маршрутизацию.
-- Клиент — веб-приложение (Vue + Vite), отвечает за интерфейс и взаимодействие с API.
-- Модель безопасности ориентирована на E2EE: сервер получает и хранит только шифртекст и метаданные, без расшифровки содержимого сообщений.
+- `backend` (C++20 + CMake) отвечает за регистрацию, вход, выдачу публичных ключей, хранение и выдачу истории сообщений.
+- `frontend/anonim-web` (Vue 3 + TypeScript + Vite) отвечает за интерфейс, управление локальными ключами и взаимодействие с API.
 
-## Сборка (backend)
+Проект построен по модели E2EE: сервер не расшифровывает сообщения и хранит только шифртекст и служебные метаданные.
 
-### Вариант для текущего окружения Windows (MSYS2 g++ + Ninja)
+## Основные преимущества
+
+- Разделение ответственности: backend занимается API и хранением, frontend — криптографией и UX.
+- E2EE-ориентированная архитектура: приватные ключи остаются на клиенте.
+- Простой локальный запуск: отдельные команды для backend и frontend или запуск через Docker Compose.
+- Покрытие backend-тестами: unit-тесты на Catch2 и отдельные сценарные проверки ключевых потоков.
+
+## Механизм шифрования
+
+- На клиенте генерируется пара ключей ECDH P-256 при регистрации.
+- На сервер отправляется только публичный ключ пользователя.
+- Для каждого собеседника клиент вычисляет общий секрет (ECDH) и получает ключ AES-GCM 256.
+- Каждое сообщение шифруется на клиенте (AES-GCM с уникальным nonce).
+- Сервер получает и хранит `ciphertext`, `nonce` и метаданные маршрутизации без доступа к plaintext.
+
+## Third-party технологии
+
+### Backend
+
+- CMake
+- Ninja (в текущем рабочем окружении)
+- Catch2 v3 (unit-тесты)
+- WinSock2 (`ws2_32`) на Windows
+
+### Frontend
+
+- Vue 3
+- Vite
+- TypeScript
+- `@vitejs/plugin-vue`
+- `vue-tsc`
+
+### Инфраструктура
+
+- Docker
+- Docker Compose
+
+## Инструкции по локальному запуску
+
+### 1) Запуск backend (Windows, MSYS2 g++ + Ninja)
 
 ```powershell
 cd backend
 cmake -S . -B build-ninja -G Ninja -DCMAKE_CXX_COMPILER=g++
 cmake --build build-ninja
-```
-
-### Универсальный вариант CMake
-
-```powershell
-cd backend
-cmake -S . -B build
-cmake --build build --config Release
-```
-
-## Пример запуска
-
-```powershell
-cd backend
 ./build-ninja/anonim_server.exe 8090
 ```
 
-Проверка доступности API:
+Проверка health-эндпоинта:
 
 ```powershell
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8090/health
 ```
 
-Ожидаемое тело ответа:
+Ожидаемый ответ:
 
 ```json
 { "status": "ok", "service": "anonim-backend" }
 ```
 
-## Использованные сторонние библиотеки и инструменты
+### 2) Запуск frontend
 
-## Docker: backend + frontend одной командой
+```powershell
+cd frontend/anonim-web
+npm install
+npm run dev
+```
 
-Требуется установленный Docker Desktop (или Docker Engine + Compose).
+По умолчанию frontend доступен по адресу `http://127.0.0.1:5173`.
 
-Запуск из корня репозитория:
+### 3) Запуск через Docker Compose (backend + frontend)
 
 ```powershell
 docker compose up --build
@@ -59,8 +87,8 @@ docker compose up --build
 
 После запуска:
 
-- Frontend: http://127.0.0.1:5173
-- Backend API: http://127.0.0.1:8090
+- Frontend: `http://127.0.0.1:5173`
+- Backend API: `http://127.0.0.1:8090`
 
 Остановка:
 
@@ -68,18 +96,37 @@ docker compose up --build
 docker compose down
 ```
 
-### Backend
+## Инструкции по тестированию
 
-- CMake (система сборки)
-- Ninja (генератор сборки, в текущем окружении)
-- WinSock2 (`ws2_32`) для сетевого взаимодействия на Windows
+### Backend unit-тесты (Catch2 + CTest)
 
-Примечание: сам сервер реализован в основном на стандартной библиотеке C++20, без внешних C++ фреймворков.
+```powershell
+cd backend
+cmake -S . -B build-ninja -G Ninja -DCMAKE_CXX_COMPILER=g++
+cmake --build build-ninja
+ctest --test-dir build-ninja --output-on-failure
+```
 
-### Frontend
+### Backend сценарные проверки
 
-- Vue 3
-- Vite
-- `@vitejs/plugin-vue`
-- TypeScript
-- `vue-tsc`
+После сборки доступны исполняемые сценарии в `backend/build-ninja/tests/scenarios`:
+
+- `register_flow`
+- `login_flow`
+- `public_key_flow`
+- `message_send_flow`
+- `conversation_poll_flow`
+
+Пример запуска одного сценария:
+
+```powershell
+cd backend/build-ninja/tests/scenarios
+./register_flow.exe
+```
+
+### Frontend проверка сборки
+
+```powershell
+cd frontend/anonim-web
+npm run build
+```

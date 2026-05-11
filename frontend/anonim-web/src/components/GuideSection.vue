@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// Статический раздел — инструкции и описание возможностей мессенджера.
 defineOptions({ name: "GuideSection" });
 
 type Translator = (...args: any[]) => string;

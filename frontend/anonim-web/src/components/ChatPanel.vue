@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// Панель чата: выбор/подключение к собеседнику, показ зашифрованных сообщений и отправка.
 type Translator = (...args: any[]) => string;
 
 type ApiMessage = {
@@ -41,6 +42,7 @@ function selectPeer(peer: string): void {
 </script>
 
 <template>
+  <!-- Основная разметка панели чата -->
   <template v-if="true">
     <div class="peer-input">
       <input

@@ -25,9 +25,11 @@
 #include <unistd.h>
 #endif
 
+using namespace request_utils;
+
 namespace
 {
-    // Builder pattern: constructs consistent HTTP responses step by step via a fluent API.
+    // Собирает HTTP-ответы в одном месте.
     class HttpResponseBuilder
     {
     public:
@@ -96,7 +98,7 @@ namespace
         std::string file_size;
     };
 
-    // Strategy pattern: each validator encapsulates one interchangeable message-validation rule.
+    // Отдельные правила проверки сообщения.
     class MessageValidationStrategy
     {
     public:
@@ -153,7 +155,7 @@ namespace
         return strategies;
     }
 
-    // Command pattern: each route is represented as an executable command with its own match predicate.
+    // Каждому роуту соответствует своя команда.
     struct RouteCommand
     {
         std::function<bool(const std::string &path)> match;

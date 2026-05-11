@@ -1,6 +1,8 @@
+// Поддерживаемые локали и ключи переводов
 export type Locale = "en" | "ru";
 export type TranslationKey = keyof typeof I18N.en;
 
+// Таблицы переводов для UI (англ. и рус.)
 export const I18N = {
   en: {
     appTitle: "Cipher Chat Client",
@@ -174,6 +176,7 @@ export const I18N = {
   },
 } as const;
 
+// Простая фабрика переводчика: возвращает функцию `t(key)` для выбранной локали
 export function createTranslator(locale: Locale) {
   return function t(key: TranslationKey): string {
     return I18N[locale][key];
