@@ -25,10 +25,6 @@ cmake --build build --config Release
 
 On Windows with Visual Studio generator, executable path is usually:
 
-```powershell
-./build/Release/anonim_server.exe 8080
-```
-
 ## API
 
 ### Health
