@@ -13,8 +13,8 @@ Minimal backend prototype for a secure text chat.
 
 ```powershell
 cd backend
-cmake -S . -B build
-cmake --build build --config Release
+cmake --build build-ninja
+cmake --build build-ninja --config Release
 ```
 
 ## Run
