@@ -52,19 +52,11 @@
 
 ```powershell
 cmake -S . -B build
-cmake --build build --config Release --target anonim_server
+cmake --build build
 ```
 
 Если нужен полный backend-контур, можно собрать и тесты:
 
-```powershell
-cmake --build build --config Release --target anonim_tests
-```
-
-Сценарные проверки собираются отдельными targets:
-
-```powershell
-cmake --build build --config Release --target register_flow login_flow public_key_flow message_send_flow conversation_poll_flow
 ```
 
 После сборки исполняемые файлы backend обычно лежат в `build/backend/Release` на Visual Studio generator или в `build/backend` на single-config генераторах. Сценарии находятся в `build/tests/scenarios/Release` либо в `build/tests/scenarios`.
