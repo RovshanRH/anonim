@@ -1,5 +1,7 @@
 include(FetchContent)
 
+set(CATCH_ENABLE_REPRODUCIBLE_BUILD OFF CACHE BOOL "" FORCE)
+
 FetchContent_Declare(
     Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git

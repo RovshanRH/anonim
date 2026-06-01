@@ -3,10 +3,22 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: runtime
+    entrypoint:
+      - /app/anonim_server
     container_name: anonim-backend
     ports:
       - "8090:8090"
     restart: unless-stopped
+
+  backend-tests:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: test
+    container_name: anonim-backend-tests
+    profiles:
+      - test
 
   frontend:
     build:

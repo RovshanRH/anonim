@@ -4,6 +4,7 @@ FROM debian:bookworm-slim AS builder
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     build-essential \
+    ca-certificates \
     cmake \
     ninja-build \
     pkg-config \
@@ -14,8 +15,13 @@ WORKDIR /src
 COPY . .
 
 # Используем генератор Ninja и параллельную сборку
-RUN cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DANONIM_BUILD_TESTS=OFF \
+RUN cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
     && cmake --build build --parallel
+
+FROM builder AS test
+
+WORKDIR /src
+CMD ["ctest", "--test-dir", "/src/build", "--output-on-failure"]
 
 FROM debian:bookworm-slim AS runtime
 
@@ -27,4 +33,5 @@ WORKDIR /app
 COPY --from=builder /src/build/anonim_server /app/anonim_server
 
 EXPOSE 8090
-CMD ["/app/anonim_server", "8090"]
+ENTRYPOINT ["/app/anonim_server"]
+CMD ["8090"]

@@ -57,7 +57,7 @@ cmake --build build
 
 Если нужен полный backend-контур, можно собрать и тесты:
 
-```
+````
 
 После сборки исполняемые файлы backend обычно лежат в `build/backend/Release` на Visual Studio generator или в `build/backend` на single-config генераторах. Сценарии находятся в `build/tests/scenarios/Release` либо в `build/tests/scenarios`.
 
@@ -65,7 +65,7 @@ cmake --build build
 
 ```powershell
 ./build/backend/Release/anonim_server.exe 8090
-```
+````
 
 На Ninja или Unix Makefiles обычно используется путь вида `./build/backend/anonim_server 8090`.
 
@@ -102,6 +102,14 @@ docker compose up --build
 - Frontend: `http://127.0.0.1:5173`
 - Backend API: `http://127.0.0.1:8090`
 
+Порт backend можно переопределять через CLI-аргументы контейнера:
+
+```powershell
+docker compose run --rm backend 9000
+```
+
+В этом случае сервер стартует на порту `9000`.
+
 Остановка:
 
 ```powershell
@@ -116,6 +124,12 @@ docker compose down
 cmake -S . -B build
 cmake --build build --config Release --target anonim_tests
 ctest --test-dir build --output-on-failure
+```
+
+В контейнере тесты можно запускать отдельным сервисом:
+
+```powershell
+docker compose --profile test run --rm backend-tests
 ```
 
 ### Backend сценарные проверки
