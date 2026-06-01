@@ -1,0 +1,5 @@
+if(EXISTS "C:/Users/rovian/anonim/backend/build-ninja/tests/anonim_tests-b12d07c_tests.cmake")
+  include("C:/Users/rovian/anonim/backend/build-ninja/tests/anonim_tests-b12d07c_tests.cmake")
+else()
+  add_test(anonim_tests_NOT_BUILT-b12d07c anonim_tests_NOT_BUILT-b12d07c)
+endif()

@@ -13,8 +13,8 @@ Minimal backend prototype for a secure text chat.
 
 ```powershell
 cd backend
-cmake -S . -B build
-cmake --build build --config Release
+cmake --build build-ninja
+cmake --build build-ninja --config Release
 ```
 
 ## Run
@@ -24,10 +24,6 @@ cmake --build build --config Release
 ```
 
 On Windows with Visual Studio generator, executable path is usually:
-
-```powershell
-./build/Release/anonim_server.exe 8080
-```
 
 ## API
 
