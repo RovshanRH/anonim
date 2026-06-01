@@ -7,6 +7,8 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <functional>
+#include <memory>
 #include <random>
 #include <regex>
 #include <sstream>
@@ -67,7 +69,8 @@ namespace
                          << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
             }
 
-            response << "\r\n" << json_body_;
+            response << "\r\n"
+                     << json_body_;
             return response.str();
         }
 
@@ -146,14 +149,14 @@ namespace
         }
     };
 
-    std::vector<std::unique_ptr<MessageValidationStrategy>> make_message_validation_strategies()
-    {
-        std::vector<std::unique_ptr<MessageValidationStrategy>> strategies;
-        strategies.emplace_back(std::make_unique<RequiredFieldsValidationStrategy>());
-        strategies.emplace_back(std::make_unique<MessageTypeValidationStrategy>());
-        strategies.emplace_back(std::make_unique<UnsupportedPayloadValidationStrategy>());
-        return strategies;
-    }
+    // std::vector<std::unique_ptr<MessageValidationStrategy>> make_message_validation_strategies()
+    // {
+    //     std::vector<std::unique_ptr<MessageValidationStrategy>> strategies;
+    //     strategies.emplace_back(std::make_unique<RequiredFieldsValidationStrategy>());
+    //     strategies.emplace_back(std::make_unique<MessageTypeValidationStrategy>());
+    //     strategies.emplace_back(std::make_unique<UnsupportedPayloadValidationStrategy>());
+    //     return strategies;
+    // }
 
     // Каждому роуту соответствует своя команда.
     struct RouteCommand

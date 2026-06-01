@@ -48,14 +48,34 @@
 
 ## Инструкции по локальному запуску
 
-### 1) Запуск backend (Windows, MSYS2 g++ + Ninja)
+### 1) Сборка backend через CMake
 
 ```powershell
-cd backend
-cmake -S . -B build-ninja -G Ninja -DCMAKE_CXX_COMPILER=g++
-cmake --build build-ninja
-./build-ninja/anonim_server.exe 8090
+cmake -S . -B build
+cmake --build build --config Release --target anonim_server
 ```
+
+Если нужен полный backend-контур, можно собрать и тесты:
+
+```powershell
+cmake --build build --config Release --target anonim_tests
+```
+
+Сценарные проверки собираются отдельными targets:
+
+```powershell
+cmake --build build --config Release --target register_flow login_flow public_key_flow message_send_flow conversation_poll_flow
+```
+
+После сборки исполняемые файлы backend обычно лежат в `build/backend/Release` на Visual Studio generator или в `build/backend` на single-config генераторах. Сценарии находятся в `build/tests/scenarios/Release` либо в `build/tests/scenarios`.
+
+Пример запуска backend на Windows с Visual Studio generator:
+
+```powershell
+./build/backend/Release/anonim_server.exe 8090
+```
+
+На Ninja или Unix Makefiles обычно используется путь вида `./build/backend/anonim_server 8090`.
 
 Проверка health-эндпоинта:
 
@@ -101,15 +121,14 @@ docker compose down
 ### Backend unit-тесты (Catch2 + CTest)
 
 ```powershell
-cd backend
-cmake -S . -B build-ninja -G Ninja -DCMAKE_CXX_COMPILER=g++
-cmake --build build-ninja
-ctest --test-dir build-ninja --output-on-failure
+cmake -S . -B build
+cmake --build build --config Release --target anonim_tests
+ctest --test-dir build --output-on-failure
 ```
 
 ### Backend сценарные проверки
 
-После сборки доступны исполняемые сценарии в `backend/build-ninja/tests/scenarios`:
+После сборки доступны исполняемые сценарии в `build/tests/scenarios`:
 
 - `register_flow`
 - `login_flow`
@@ -117,12 +136,14 @@ ctest --test-dir build-ninja --output-on-failure
 - `message_send_flow`
 - `conversation_poll_flow`
 
-Пример запуска одного сценария:
+Пример запуска одного сценария на Windows с Visual Studio generator:
 
 ```powershell
-cd backend/build-ninja/tests/scenarios
+cd build/tests/scenarios/Release
 ./register_flow.exe
 ```
+
+На Ninja или Unix Makefiles обычно используется `cd build/tests/scenarios` и запуск `./register_flow`.
 
 ### Frontend проверка сборки
 

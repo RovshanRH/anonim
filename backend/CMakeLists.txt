@@ -7,9 +7,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(ANONIM_BUILD_TESTS "Build backend unit tests" ON)
 
+find_package(Threads REQUIRED)
+
 add_library(anonim_backend_core STATIC
     src/chat_server.cpp
-    src/chat_server_routes.cpp
     src/request_utils.cpp
 )
 
@@ -27,6 +28,8 @@ endif()
 if(WIN32)
     target_link_libraries(anonim_backend_core PUBLIC ws2_32)
 endif()
+
+target_link_libraries(anonim_backend_core PUBLIC Threads::Threads)
 
 add_executable(anonim_server
     src/main.cpp

@@ -3,7 +3,7 @@
 Thumbs.db
 .idea/
 .vscode/
-
+.vs/
 # --- Logs ---
 *.log
 logs/
